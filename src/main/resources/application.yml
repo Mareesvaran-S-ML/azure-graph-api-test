@@ -7,30 +7,34 @@ spring:
       client:
         registration:
           azure:
-            client-id: ${AZURE_CLIENT_ID:c3f61650-f4cf-45bd-91c6-cf300832f68a}
-            client-secret: ${AZURE_CLIENT_SECRET:006248e1-8029-44d9-a966-9a4b58a56d49}
+            client-id: ${AZURE_CLIENT_ID:9f6cf3b0-c7fe-4220-86fd-a58ac086a692}
+            client-secret: ${AZURE_CLIENT_SECRET}
             scope:
               - openid
               - profile
-              - User.Read
-#              - Directory.Read.All
-#              - GroupMember.Read.All
+              - email
+              - https://graph.microsoft.com/User.Read
+              - https://graph.microsoft.com/Directory.Read.All
+              - https://graph.microsoft.com/GroupMember.Read.All
             authorization-grant-type: authorization_code
-            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            redirect-uri: "http://localhost:8082/login/oauth2/code/azure"
+            client-name: Azure
         provider:
           azure:
-#            authorization-uri: https://login.microsoftonline.com/${AZURE_TENANT_ID:f67255a8-0525-4454-88a6-bf4216ff6c68}/oauth2/v2.0/authorize
-#            token-uri: https://login.microsoftonline.com/${AZURE_TENANT_ID:f67255a8-0525-4454-88a6-bf4216ff6c68}/oauth2/v2.0/token
-#            user-info-uri: https://graph.microsoft.com/oidc/userinfo
-#            jwk-set-uri: https://login.microsoftonline.com/${AZURE_TENANT_ID:f67255a8-0525-4454-88a6-bf4216ff6c68}/discovery/v2.0/keys
-#            user-name-attribute: sub
-            authorization-uri: https://login.microsoftonline.com/${AZURE_TENANT_NAME:qcellsces.onmicrosoft.com}/oauth2/v2.0/authorize
-            token-uri: https://login.microsoftonline.com/${AZURE_TENANT_NAME:qcellsces.onmicrosoft.com}/oauth2/v2.0/token
+            authorization-uri: https://login.microsoftonline.com/4f402a0a-52d8-435d-9834-23cc12ede3ff/oauth2/v2.0/authorize
+            token-uri: https://login.microsoftonline.com/4f402a0a-52d8-435d-9834-23cc12ede3ff/oauth2/v2.0/token
             user-info-uri: https://graph.microsoft.com/oidc/userinfo
-            jwk-set-uri: https://login.microsoftonline.com/${AZURE_TENANT_NAME:qcellsces.onmicrosoft.com}/discovery/v2.0/keys
+            jwk-set-uri: https://login.microsoftonline.com/4f402a0a-52d8-435d-9834-23cc12ede3ff/discovery/v2.0/keys
             user-name-attribute: sub
+#            authorization-uri: https://login.microsoftonline.com/${AZURE_TENANT_NAME:qcellsces.onmicrosoft.com}/oauth2/v2.0/authorize
+#            token-uri: https://login.microsoftonline.com/${AZURE_TENANT_NAME:qcellsces.onmicrosoft.com}/oauth2/v2.0/token
+#            user-info-uri: https://graph.microsoft.com/oidc/userinfo
+#            jwk-set-uri: https://login.microsoftonline.com/${AZURE_TENANT_NAME:qcellsces.onmicrosoft.com}/discovery/v2.0/keys
+#            user-name-attribute: sub
 
 logging:
   level:
     org.springframework.security: DEBUG
+    org.springframework.security.oauth2: DEBUG
     org.springframework.web.reactive: DEBUG
+    ROOT: DEBUG

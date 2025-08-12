@@ -35,4 +35,10 @@ public class WebController {
             return "error";
         }
     }
+
+    @GetMapping("/users")
+    public String users(Authentication authentication, Model model) {
+        // This page will load users via JavaScript/API calls
+        return "users";
+    }
 }

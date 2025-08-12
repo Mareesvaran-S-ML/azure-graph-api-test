@@ -58,13 +58,23 @@ public class GraphApiService {
             userDTO.setJobTitle(userJson.has("jobTitle") ? userJson.get("jobTitle").asText() : null);
             userDTO.setDepartment(userJson.has("department") ? userJson.get("department").asText() : null);
 
-            // Get user's group memberships
-            List<GroupDTO> groups = getUserGroups(authentication, null);
-            userDTO.setGroups(groups);
+            // Get user's group memberships (handle permission errors gracefully)
+            try {
+                List<GroupDTO> groups = getUserGroups(authentication, null);
+                userDTO.setGroups(groups);
+            } catch (Exception e) {
+                System.out.println("Warning: Could not retrieve user groups - " + e.getMessage());
+                userDTO.setGroups(new ArrayList<>());
+            }
 
-            // Get user's directory roles
-            List<String> roles = getUserRoles(authentication, null);
-            userDTO.setRoles(roles);
+            // Get user's directory roles (handle permission errors gracefully)
+            try {
+                List<String> roles = getUserRoles(authentication, null);
+                userDTO.setRoles(roles);
+            } catch (Exception e) {
+                System.out.println("Warning: Could not retrieve user roles - " + e.getMessage());
+                userDTO.setRoles(new ArrayList<>());
+            }
 
             return userDTO;
 
@@ -152,7 +162,7 @@ public class GraphApiService {
             String accessToken = getAccessToken(authentication);
 
             Mono<JsonNode> usersMono = webClient.get()
-                    .uri("/users?$top=100")
+                    .uri("/users?$top=100&$select=id,displayName,userPrincipalName,mail,jobTitle,department,accountEnabled,createdDateTime,lastSignInDateTime,userType,assignedLicenses")
                     .header("Authorization", "Bearer " + accessToken)
                     .retrieve()
                     .bodyToMono(JsonNode.class);
@@ -164,7 +174,9 @@ public class GraphApiService {
                 JsonNode usersArray = usersJson.get("value");
                 for (JsonNode userNode : usersArray) {
                     UserDTO userDTO = new UserDTO();
-                    userDTO.setId(userNode.get("id").asText());
+                    String userId = userNode.get("id").asText();
+
+                    userDTO.setId(userId);
                     userDTO.setDisplayName(userNode.has("displayName") ?
                             userNode.get("displayName").asText() : null);
                     userDTO.setUserPrincipalName(userNode.has("userPrincipalName") ?
@@ -175,6 +187,27 @@ public class GraphApiService {
                             userNode.get("jobTitle").asText() : null);
                     userDTO.setDepartment(userNode.has("department") ?
                             userNode.get("department").asText() : null);
+                    userDTO.setAccountEnabled(userNode.has("accountEnabled") ?
+                            userNode.get("accountEnabled").asBoolean() : true);
+                    userDTO.setCreatedDateTime(userNode.has("createdDateTime") ?
+                            userNode.get("createdDateTime").asText() : null);
+                    userDTO.setLastSignInDateTime(userNode.has("lastSignInDateTime") ?
+                            userNode.get("lastSignInDateTime").asText() : null);
+                    userDTO.setUserType(userNode.has("userType") ?
+                            userNode.get("userType").asText() : "Member");
+
+                    // Get groups and roles for each user
+                    try {
+                        List<GroupDTO> groups = getUserGroups(authentication, userId);
+                        List<String> roles = getUserRoles(authentication, userId);
+                        userDTO.setGroups(groups);
+                        userDTO.setRoles(roles);
+                    } catch (Exception e) {
+                        // If we can't get groups/roles for a user, set empty lists
+                        userDTO.setGroups(new ArrayList<>());
+                        userDTO.setRoles(new ArrayList<>());
+                    }
+
                     userDTOs.add(userDTO);
                 }
             }
@@ -185,4 +218,6 @@ public class GraphApiService {
             throw new RuntimeException("Failed to retrieve all users: " + e.getMessage(), e);
         }
     }
+
+
 }
