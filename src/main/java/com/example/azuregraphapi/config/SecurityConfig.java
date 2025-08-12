@@ -6,6 +6,8 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 
 @Configuration
 @EnableWebSecurity
@@ -16,12 +18,13 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests(authz -> authz
-                        .requestMatchers("/", "/login", "/error").permitAll()
+                        .requestMatchers("/", "/login", "/error", "/css/**", "/js/**", "/images/**", "/api/auth/login").permitAll()
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
                         .loginPage("/login")
-                        .defaultSuccessUrl("/dashboard", true)
+                        .defaultSuccessUrl("/api/auth/login", true)
+                        .failureHandler(authenticationFailureHandler())
                 )
                 .logout(logout -> logout
                         .logoutSuccessUrl("/")
@@ -30,5 +33,16 @@ public class SecurityConfig {
                 );
 
         return http.build();
+    }
+
+
+
+    @Bean
+    public AuthenticationFailureHandler authenticationFailureHandler() {
+        return (request, response, exception) -> {
+            System.out.println("Authentication failed: " + exception.getMessage());
+            exception.printStackTrace();
+            response.sendRedirect("/login?error=true");
+        };
     }
 }

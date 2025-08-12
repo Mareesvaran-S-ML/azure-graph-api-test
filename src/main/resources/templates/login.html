@@ -13,6 +13,9 @@
                     <h3 class="text-center">Azure AD Login</h3>
                 </div>
                 <div class="card-body text-center">
+                    <div th:if="${param.error}" class="alert alert-danger" role="alert">
+                        Authentication failed. Please try again.
+                    </div>
                     <p>Please login using your Azure AD credentials</p>
                     <a href="/oauth2/authorization/azure" class="btn btn-primary btn-lg">
                         <i class="fab fa-microsoft"></i> Sign in with Microsoft

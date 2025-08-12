@@ -9,6 +9,10 @@ public class UserDTO {
     private String mail;
     private String jobTitle;
     private String department;
+    private Boolean accountEnabled;
+    private String createdDateTime;
+    private String lastSignInDateTime;
+    private String userType;
     private List<String> roles;
     private List<GroupDTO> groups;
 
@@ -40,6 +44,18 @@ public class UserDTO {
 
     public String getDepartment() { return department; }
     public void setDepartment(String department) { this.department = department; }
+
+    public Boolean getAccountEnabled() { return accountEnabled; }
+    public void setAccountEnabled(Boolean accountEnabled) { this.accountEnabled = accountEnabled; }
+
+    public String getCreatedDateTime() { return createdDateTime; }
+    public void setCreatedDateTime(String createdDateTime) { this.createdDateTime = createdDateTime; }
+
+    public String getLastSignInDateTime() { return lastSignInDateTime; }
+    public void setLastSignInDateTime(String lastSignInDateTime) { this.lastSignInDateTime = lastSignInDateTime; }
+
+    public String getUserType() { return userType; }
+    public void setUserType(String userType) { this.userType = userType; }
 
     public List<String> getRoles() { return roles; }
     public void setRoles(List<String> roles) { this.roles = roles; }
