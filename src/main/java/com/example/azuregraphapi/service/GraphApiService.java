@@ -41,9 +41,9 @@ public class GraphApiService {
         try {
             String accessToken = getAccessToken(authentication);
 
-            // Get user profile
+            // Get user profile with all fields
             Mono<JsonNode> userMono = webClient.get()
-                    .uri("/me")
+                    .uri("/me?$select=id,displayName,userPrincipalName,mail,jobTitle,department,accountEnabled,createdDateTime,lastSignInDateTime,userType,assignedLicenses")
                     .header("Authorization", "Bearer " + accessToken)
                     .retrieve()
                     .bodyToMono(JsonNode.class);
@@ -52,25 +52,29 @@ public class GraphApiService {
 
             UserDTO userDTO = new UserDTO();
             userDTO.setId(userJson.get("id").asText());
-            userDTO.setDisplayName(userJson.has("displayName") ? userJson.get("displayName").asText() : null);
-            userDTO.setUserPrincipalName(userJson.has("userPrincipalName") ? userJson.get("userPrincipalName").asText() : null);
-            userDTO.setMail(userJson.has("mail") ? userJson.get("mail").asText() : null);
-            userDTO.setJobTitle(userJson.has("jobTitle") ? userJson.get("jobTitle").asText() : null);
-            userDTO.setDepartment(userJson.has("department") ? userJson.get("department").asText() : null);
+            userDTO.setDisplayName(userJson.has("displayName") && !userJson.get("displayName").isNull() ? userJson.get("displayName").asText() : null);
+            userDTO.setUserPrincipalName(userJson.has("userPrincipalName") && !userJson.get("userPrincipalName").isNull() ? userJson.get("userPrincipalName").asText() : null);
+            userDTO.setMail(userJson.has("mail") && !userJson.get("mail").isNull() ? userJson.get("mail").asText() : null);
+            userDTO.setJobTitle(userJson.has("jobTitle") && !userJson.get("jobTitle").isNull() ? userJson.get("jobTitle").asText() : null);
+            userDTO.setDepartment(userJson.has("department") && !userJson.get("department").isNull() ? userJson.get("department").asText() : null);
+            userDTO.setAccountEnabled(userJson.has("accountEnabled") && !userJson.get("accountEnabled").isNull() ? userJson.get("accountEnabled").asBoolean() : true);
+            userDTO.setCreatedDateTime(userJson.has("createdDateTime") && !userJson.get("createdDateTime").isNull() ? userJson.get("createdDateTime").asText() : null);
+            userDTO.setLastSignInDateTime(userJson.has("lastSignInDateTime") && !userJson.get("lastSignInDateTime").isNull() ? userJson.get("lastSignInDateTime").asText() : null);
+            userDTO.setUserType(userJson.has("userType") && !userJson.get("userType").isNull() ? userJson.get("userType").asText() : "Member");
 
-            // Get user's group memberships (handle permission errors gracefully)
+            // Get user's group memberships
             try {
                 List<GroupDTO> groups = getUserGroups(authentication, null);
-                userDTO.setGroups(groups);
+                userDTO.setGroups(groups != null ? groups : new ArrayList<>());
             } catch (Exception e) {
                 System.out.println("Warning: Could not retrieve user groups - " + e.getMessage());
                 userDTO.setGroups(new ArrayList<>());
             }
 
-            // Get user's directory roles (handle permission errors gracefully)
+            // Get user's directory roles
             try {
                 List<String> roles = getUserRoles(authentication, null);
-                userDTO.setRoles(roles);
+                userDTO.setRoles(roles != null ? roles : new ArrayList<>());
             } catch (Exception e) {
                 System.out.println("Warning: Could not retrieve user roles - " + e.getMessage());
                 userDTO.setRoles(new ArrayList<>());
@@ -89,7 +93,7 @@ public class GraphApiService {
             String uri = userId != null ? "/users/" + userId + "/memberOf" : "/me/memberOf";
 
             Mono<JsonNode> groupsMono = webClient.get()
-                    .uri(uri)
+                    .uri(uri + "?$select=id,displayName,description,groupTypes")
                     .header("Authorization", "Bearer " + accessToken)
                     .retrieve()
                     .bodyToMono(JsonNode.class);
@@ -106,10 +110,31 @@ public class GraphApiService {
 
                         GroupDTO groupDTO = new GroupDTO();
                         groupDTO.setId(groupNode.get("id").asText());
-                        groupDTO.setDisplayName(groupNode.has("displayName") ?
+                        groupDTO.setDisplayName(groupNode.has("displayName") && !groupNode.get("displayName").isNull() ?
                                 groupNode.get("displayName").asText() : null);
-                        groupDTO.setDescription(groupNode.has("description") ?
+                        groupDTO.setDescription(groupNode.has("description") && !groupNode.get("description").isNull() ?
                                 groupNode.get("description").asText() : null);
+
+                        // Set group type based on groupTypes array
+                        if (groupNode.has("groupTypes") && !groupNode.get("groupTypes").isNull()) {
+                            JsonNode groupTypesArray = groupNode.get("groupTypes");
+                            if (groupTypesArray.isArray() && groupTypesArray.size() > 0) {
+                                // Microsoft 365 groups have "Unified" in groupTypes
+                                boolean isUnified = false;
+                                for (JsonNode typeNode : groupTypesArray) {
+                                    if ("Unified".equals(typeNode.asText())) {
+                                        isUnified = true;
+                                        break;
+                                    }
+                                }
+                                groupDTO.setGroupType(isUnified ? "Microsoft 365" : "Security");
+                            } else {
+                                groupDTO.setGroupType("Security");
+                            }
+                        } else {
+                            groupDTO.setGroupType("Security");
+                        }
+
                         groups.add(groupDTO);
                     }
                 }
