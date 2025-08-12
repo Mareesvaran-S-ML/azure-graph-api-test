@@ -178,7 +178,7 @@ public class UserController {
             result.put("user_id", userId);
             result.put("expires_at", client.getAccessToken().getExpiresAt());
             result.put("login_time", System.currentTimeMillis());
-            result.put("message", "Use this session_code as 'X-Session-Code' header in subsequent API calls");
+            result.put("message", "Use Cookie: JSESSIONID=" + sessionId + " header in subsequent API calls");
 
             // Set content type to ensure JSON response
             response.setContentType("application/json");
