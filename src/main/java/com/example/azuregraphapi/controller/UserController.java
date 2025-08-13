@@ -1,7 +1,6 @@
 package com.example.azuregraphapi.controller;
 
 import com.example.azuregraphapi.dto.UserDTO;
-import com.example.azuregraphapi.dto.GroupDTO;
 import com.example.azuregraphapi.service.GraphApiService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -9,6 +8,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -16,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 
 @RestController
@@ -32,48 +34,24 @@ public class UserController {
      * Endpoint 1: Get current authenticated user's details including roles and groups
      */
     @GetMapping("/user/profile")
-    public ResponseEntity<UserDTO> getCurrentUserProfile(Authentication authentication) {
+    public ResponseEntity<UserDTO> getCurrentUserProfile(Authentication authentication, HttpServletRequest request) {
         try {
-            UserDTO user = graphApiService.getCurrentUser(authentication);
+            UserDTO user = graphApiService.getCurrentUser(authentication, request);
             return ResponseEntity.ok(user);
         } catch (Exception e) {
             return ResponseEntity.status(500).body(null);
         }
     }
 
-    /**
-     * Endpoint 2: Get current user's security groups
-     */
-    @GetMapping("/user/groups")
-    public ResponseEntity<List<GroupDTO>> getCurrentUserGroups(Authentication authentication) {
-        try {
-            List<GroupDTO> groups = graphApiService.getUserGroups(authentication, null);
-            return ResponseEntity.ok(groups);
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(null);
-        }
-    }
 
-    /**
-     * Endpoint 3: Get current user's roles
-     */
-    @GetMapping("/user/roles")
-    public ResponseEntity<List<String>> getCurrentUserRoles(Authentication authentication) {
-        try {
-            List<String> roles = graphApiService.getUserRoles(authentication, null);
-            return ResponseEntity.ok(roles);
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(null);
-        }
-    }
 
     /**
      * Get all users (requires Directory.Read.All permission)
      */
     @GetMapping("/users")
-    public ResponseEntity<List<UserDTO>> getAllUsers(Authentication authentication) {
+    public ResponseEntity<List<UserDTO>> getAllUsers(Authentication authentication, HttpServletRequest request) {
         try {
-            List<UserDTO> users = graphApiService.getAllUsers(authentication);
+            List<UserDTO> users = graphApiService.getAllUsers(authentication, request);
             return ResponseEntity.ok(users);
         } catch (Exception e) {
             return ResponseEntity.status(500).body(null);
@@ -141,53 +119,111 @@ public class UserController {
     }
 
     /**
-     * Complete OAuth2 login and return session code directly
-     * This endpoint handles the complete flow:
-     * 1. If not authenticated: redirects to Azure AD
-     * 2. If authenticated: returns session code as JSON
+     * Direct login with username and password
+     * This endpoint accepts username/password and authenticates directly with Azure AD
      */
-    @GetMapping("/auth/login")
-    public ResponseEntity<Map<String, Object>> loginAndGetSessionCode(Authentication authentication,
-                                                                     HttpServletRequest request,
-                                                                     HttpServletResponse response) throws IOException {
+    @PostMapping("/auth/login")
+    public ResponseEntity<Map<String, Object>> loginWithCredentials(@RequestBody Map<String, String> credentials,
+                                                                   HttpServletRequest request,
+                                                                   HttpServletResponse response) {
+        System.out.println("POST /api/auth/login called with credentials: " + credentials.keySet());
         try {
-            // Check if user is already authenticated
-            if (authentication == null || !authentication.isAuthenticated() ||
-                !(authentication instanceof OAuth2AuthenticationToken)) {
-                // Not authenticated, redirect to Azure AD
-                response.sendRedirect("/oauth2/authorization/azure");
-                return null; // Response will be handled by redirect
+            String username = credentials.get("username");
+            String password = credentials.get("password");
+            System.out.println("Username: " + username + ", Password length: " + (password != null ? password.length() : 0));
+
+            if (username == null || password == null || username.trim().isEmpty() || password.trim().isEmpty()) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("authenticated", false);
+                errorResponse.put("error", "Username and password are required");
+                return ResponseEntity.status(400).body(errorResponse);
             }
 
-            // User is authenticated, return session code as JSON
-            String sessionId = request.getSession().getId();
+            // Authenticate with Azure AD using username/password
+            Map<String, Object> authResult = graphApiService.authenticateWithCredentials(username, password);
 
-            // Get user info
-            OAuth2AuthenticationToken oauthToken = (OAuth2AuthenticationToken) authentication;
-            String userId = oauthToken.getName();
+            if ((Boolean) authResult.get("authenticated")) {
+                // Create session
+                String sessionId = request.getSession().getId();
 
-            // Get access token info
-            OAuth2AuthorizedClient client = authorizedClientService.loadAuthorizedClient(
-                    oauthToken.getAuthorizedClientRegistrationId(),
-                    oauthToken.getName()
-            );
+                // Store authentication info in session
+                request.getSession().setAttribute("azure_access_token", authResult.get("access_token"));
+                request.getSession().setAttribute("azure_user_id", authResult.get("user_id"));
+                request.getSession().setAttribute("authenticated", true);
 
-            Map<String, Object> result = new HashMap<>();
-            result.put("authenticated", true);
-            result.put("session_code", sessionId);
-            result.put("user_id", userId);
-            result.put("expires_at", client.getAccessToken().getExpiresAt());
-            result.put("login_time", System.currentTimeMillis());
-            result.put("message", "Use Cookie: JSESSIONID=" + sessionId + " header in subsequent API calls");
+                // Create a Spring Security authentication token
+                UsernamePasswordAuthenticationToken authToken =
+                    new UsernamePasswordAuthenticationToken(
+                        authResult.get("user_id"), null, java.util.Collections.emptyList());
+                authToken.setDetails(authResult);
+                SecurityContextHolder.getContext().setAuthentication(authToken);
 
-            // Set content type to ensure JSON response
-            response.setContentType("application/json");
+                Map<String, Object> result = new HashMap<>();
+                result.put("authenticated", true);
+                result.put("session_code", sessionId);
+                result.put("user_id", authResult.get("user_id"));
+                result.put("expires_at", authResult.get("expires_at"));
+                result.put("login_time", System.currentTimeMillis());
+                result.put("message", "Use Cookie: JSESSIONID=" + sessionId + " header in subsequent API calls");
 
-            return ResponseEntity.ok(result);
+                response.setContentType("application/json");
+                return ResponseEntity.ok(result);
+            } else {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("authenticated", false);
+                errorResponse.put("error", authResult.get("error"));
+                return ResponseEntity.status(401).body(errorResponse);
+            }
+
         } catch (Exception e) {
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("authenticated", false);
-            errorResponse.put("error", "Failed to process authentication: " + e.getMessage());
+            errorResponse.put("error", "Authentication failed: " + e.getMessage());
+
+            response.setContentType("application/json");
+            return ResponseEntity.status(500).body(errorResponse);
+        }
+    }
+
+    /**
+     * Logout endpoint - invalidates session and returns JSON response
+     */
+    @PostMapping("/auth/logout")
+    public ResponseEntity<Map<String, Object>> logout(HttpServletRequest request, HttpServletResponse response) {
+        try {
+            // Get current session
+            HttpSession session = request.getSession(false);
+
+            Map<String, Object> result = new HashMap<>();
+
+            if (session != null) {
+                // Clear session attributes
+                session.removeAttribute("azure_access_token");
+                session.removeAttribute("azure_user_id");
+                session.removeAttribute("authenticated");
+
+                // Invalidate session
+                session.invalidate();
+
+                result.put("success", true);
+                result.put("message", "Successfully logged out");
+            } else {
+                result.put("success", true);
+                result.put("message", "No active session found");
+            }
+
+            // Clear Spring Security context
+            SecurityContextHolder.clearContext();
+
+            result.put("timestamp", System.currentTimeMillis());
+
+            response.setContentType("application/json");
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("error", "Logout failed: " + e.getMessage());
 
             response.setContentType("application/json");
             return ResponseEntity.status(500).body(errorResponse);
