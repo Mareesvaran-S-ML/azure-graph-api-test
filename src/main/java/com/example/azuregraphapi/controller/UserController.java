@@ -1,5 +1,7 @@
 package com.example.azuregraphapi.controller;
 
+import com.example.azuregraphapi.dto.GroupDTO;
+import com.example.azuregraphapi.dto.RoleDTO;
 import com.example.azuregraphapi.dto.UserDTO;
 import com.example.azuregraphapi.service.GraphApiService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -229,5 +231,16 @@ public class UserController {
             return ResponseEntity.status(500).body(errorResponse);
         }
     }
+    @GetMapping("/roles")
+    @ResponseBody
+    public List<RoleDTO> getRoles(Authentication authentication) {
+        return graphApiService.getDirectoryRoles(authentication);
+    }
 
+    // Security Groups API (returns JSON)
+    @GetMapping("/groups")
+    @ResponseBody
+    public List<GroupDTO> getSecurityGroups(Authentication authentication) {
+        return graphApiService.getSecurityGroups(authentication);
+    }
 }
