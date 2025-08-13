@@ -1,5 +1,6 @@
 package com.example.azuregraphapi.service;
 
+import com.example.azuregraphapi.dto.RoleDTO;
 import com.example.azuregraphapi.dto.UserDTO;
 import com.example.azuregraphapi.dto.GroupDTO;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -219,5 +220,66 @@ public class GraphApiService {
         }
     }
 
+    public List<RoleDTO> getDirectoryRoles(Authentication authentication) {
+        try {
+            String accessToken = getAccessToken(authentication);
+
+            Mono<JsonNode> rolesMono = webClient.get()
+                    .uri("/directoryRoles")
+                    .header("Authorization", "Bearer " + accessToken)
+                    .retrieve()
+                    .bodyToMono(JsonNode.class);
+
+            JsonNode rolesJson = rolesMono.block();
+            List<RoleDTO> roles = new ArrayList<>();
+
+            if (rolesJson != null && rolesJson.has("value")) {
+                JsonNode rolesArray = rolesJson.get("value");
+                for (JsonNode roleNode : rolesArray) {
+                    RoleDTO roleDTO = new RoleDTO();
+                    roleDTO.setId(roleNode.has("id") ? roleNode.get("id").asText() : null);
+                    roleDTO.setDisplayName(roleNode.has("displayName") ? roleNode.get("displayName").asText() : null);
+                    roleDTO.setDescription(roleNode.has("description") ? roleNode.get("description").asText() : null);
+                    roles.add(roleDTO);
+                }
+            }
+
+            return roles;
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to retrieve directory roles: " + e.getMessage(), e);
+        }
+    }
+
+    public List<GroupDTO> getSecurityGroups(Authentication authentication) {
+        try {
+            String accessToken = getAccessToken(authentication);
+
+            Mono<JsonNode> groupsMono = webClient.get()
+                    .uri("/groups?$filter=securityEnabled eq true&$select=id,displayName,description")
+                    .header("Authorization", "Bearer " + accessToken)
+                    .retrieve()
+                    .bodyToMono(JsonNode.class);
+
+            JsonNode groupsJson = groupsMono.block();
+            List<GroupDTO> groups = new ArrayList<>();
+
+            if (groupsJson != null && groupsJson.has("value")) {
+                JsonNode groupsArray = groupsJson.get("value");
+                for (JsonNode groupNode : groupsArray) {
+                    GroupDTO groupDTO = new GroupDTO();
+                    groupDTO.setId(groupNode.has("id") ? groupNode.get("id").asText() : null);
+                    groupDTO.setDisplayName(groupNode.has("displayName") ? groupNode.get("displayName").asText() : null);
+                    groupDTO.setDescription(groupNode.has("description") ? groupNode.get("description").asText() : null);
+                    groups.add(groupDTO);
+                }
+            }
+
+            return groups;
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to retrieve security groups: " + e.getMessage(), e);
+        }
+    }
 
 }
