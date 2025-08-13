@@ -1,5 +1,6 @@
 package com.example.azuregraphapi.service;
 
+import com.example.azuregraphapi.dto.RoleDTO;
 import com.example.azuregraphapi.dto.UserDTO;
 import com.example.azuregraphapi.dto.GroupDTO;
 import com.example.azuregraphapi.config.AzureProperties;
@@ -290,6 +291,135 @@ public class GraphApiService {
     }
 
     /**
+     * Get all security groups in the organization
+     */
+    public List<GroupDTO> getAllSecurityGroups(Authentication authentication, HttpServletRequest request) {
+        try {
+            String accessToken;
+            if (authentication != null && authentication instanceof OAuth2AuthenticationToken) {
+                accessToken = getAccessToken(authentication);
+                System.out.println("Using OAuth2 access token for all groups");
+            } else {
+                // Use session-based token
+                accessToken = getAccessTokenFromSession(request);
+                System.out.println("Using session-based access token for all groups");
+            }
+
+            System.out.println("Calling Microsoft Graph API: /groups");
+
+            Mono<JsonNode> groupsMono = webClient.get()
+                    .uri("/groups?$select=id,displayName,description,groupTypes&$filter=securityEnabled eq true")
+                    .header("Authorization", "Bearer " + accessToken)
+                    .retrieve()
+                    .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
+                            clientResponse -> {
+                                System.out.println("Error response status: " + clientResponse.statusCode());
+                                return clientResponse.bodyToMono(String.class)
+                                        .map(body -> {
+                                            System.out.println("Error response body: " + body);
+                                            return new RuntimeException("Microsoft Graph API error: " + clientResponse.statusCode() + " - " + body);
+                                        });
+                            })
+                    .bodyToMono(JsonNode.class);
+
+            JsonNode groupsJson = groupsMono.block();
+            List<GroupDTO> groups = new ArrayList<>();
+
+            if (groupsJson != null && groupsJson.has("value")) {
+                JsonNode groupsArray = groupsJson.get("value");
+                for (JsonNode groupNode : groupsArray) {
+                    GroupDTO groupDTO = new GroupDTO();
+                    groupDTO.setId(groupNode.get("id").asText());
+                    groupDTO.setDisplayName(groupNode.has("displayName") && !groupNode.get("displayName").isNull() ?
+                            groupNode.get("displayName").asText() : null);
+                    groupDTO.setDescription(groupNode.has("description") && !groupNode.get("description").isNull() ?
+                            groupNode.get("description").asText() : null);
+
+                    // Set group type based on groupTypes array
+                    if (groupNode.has("groupTypes") && !groupNode.get("groupTypes").isNull()) {
+                        JsonNode groupTypesArray = groupNode.get("groupTypes");
+                        if (groupTypesArray.isArray() && groupTypesArray.size() > 0) {
+                            // Microsoft 365 groups have "Unified" in groupTypes
+                            boolean isUnified = false;
+                            for (JsonNode typeNode : groupTypesArray) {
+                                if ("Unified".equals(typeNode.asText())) {
+                                    isUnified = true;
+                                    break;
+                                }
+                            }
+                            groupDTO.setGroupType(isUnified ? "Microsoft 365" : "Security");
+                        } else {
+                            groupDTO.setGroupType("Security");
+                        }
+                    } else {
+                        groupDTO.setGroupType("Security");
+                    }
+
+                    groups.add(groupDTO);
+                }
+            }
+
+            System.out.println("Found " + groups.size() + " security groups");
+            return groups;
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to retrieve all security groups: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Get all custom directory roles in the organization
+     */
+    public List<String> getAllCustomRoles(Authentication authentication, HttpServletRequest request) {
+        try {
+            String accessToken;
+            if (authentication != null && authentication instanceof OAuth2AuthenticationToken) {
+                accessToken = getAccessToken(authentication);
+                System.out.println("Using OAuth2 access token for all roles");
+            } else {
+                // Use session-based token
+                accessToken = getAccessTokenFromSession(request);
+                System.out.println("Using session-based access token for all roles");
+            }
+
+            System.out.println("Calling Microsoft Graph API: /directoryRoles");
+
+            Mono<JsonNode> rolesMono = webClient.get()
+                    .uri("/directoryRoles?$select=id,displayName,description")
+                    .header("Authorization", "Bearer " + accessToken)
+                    .retrieve()
+                    .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
+                            clientResponse -> {
+                                System.out.println("Error response status: " + clientResponse.statusCode());
+                                return clientResponse.bodyToMono(String.class)
+                                        .map(body -> {
+                                            System.out.println("Error response body: " + body);
+                                            return new RuntimeException("Microsoft Graph API error: " + clientResponse.statusCode() + " - " + body);
+                                        });
+                            })
+                    .bodyToMono(JsonNode.class);
+
+            JsonNode rolesJson = rolesMono.block();
+            List<String> roles = new ArrayList<>();
+
+            if (rolesJson != null && rolesJson.has("value")) {
+                JsonNode rolesArray = rolesJson.get("value");
+                for (JsonNode roleNode : rolesArray) {
+                    String roleName = roleNode.has("displayName") && !roleNode.get("displayName").isNull() ?
+                            roleNode.get("displayName").asText() : "Unknown Role";
+                    roles.add(roleName);
+                }
+            }
+
+            System.out.println("Found " + roles.size() + " directory roles");
+            return roles;
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to retrieve all directory roles: " + e.getMessage(), e);
+        }
+    }
+
+    /**
      * Authenticate with Azure AD using username and password (Resource Owner Password Credentials flow)
      */
     public Map<String, Object> authenticateWithCredentials(String username, String password) {
@@ -375,4 +505,67 @@ public class GraphApiService {
         }
     }
 
+
+
+    public List<RoleDTO> getDirectoryRoles(Authentication authentication) {
+        try {
+            String accessToken = getAccessToken(authentication);
+
+            Mono<JsonNode> rolesMono = webClient.get()
+                    .uri("/directoryRoles")
+                    .header("Authorization", "Bearer " + accessToken)
+                    .retrieve()
+                    .bodyToMono(JsonNode.class);
+
+            JsonNode rolesJson = rolesMono.block();
+            List<RoleDTO> roles = new ArrayList<>();
+
+            if (rolesJson != null && rolesJson.has("value")) {
+                JsonNode rolesArray = rolesJson.get("value");
+                for (JsonNode roleNode : rolesArray) {
+                    RoleDTO roleDTO = new RoleDTO();
+                    roleDTO.setId(roleNode.has("id") ? roleNode.get("id").asText() : null);
+                    roleDTO.setDisplayName(roleNode.has("displayName") ? roleNode.get("displayName").asText() : null);
+                    roleDTO.setDescription(roleNode.has("description") ? roleNode.get("description").asText() : null);
+                    roles.add(roleDTO);
+                }
+            }
+
+            return roles;
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to retrieve directory roles: " + e.getMessage(), e);
+        }
+    }
+
+    public List<GroupDTO> getSecurityGroups(Authentication authentication) {
+        try {
+            String accessToken = getAccessToken(authentication);
+
+            Mono<JsonNode> groupsMono = webClient.get()
+                    .uri("/groups?$filter=securityEnabled eq true&$select=id,displayName,description")
+                    .header("Authorization", "Bearer " + accessToken)
+                    .retrieve()
+                    .bodyToMono(JsonNode.class);
+
+            JsonNode groupsJson = groupsMono.block();
+            List<GroupDTO> groups = new ArrayList<>();
+
+            if (groupsJson != null && groupsJson.has("value")) {
+                JsonNode groupsArray = groupsJson.get("value");
+                for (JsonNode groupNode : groupsArray) {
+                    GroupDTO groupDTO = new GroupDTO();
+                    groupDTO.setId(groupNode.has("id") ? groupNode.get("id").asText() : null);
+                    groupDTO.setDisplayName(groupNode.has("displayName") ? groupNode.get("displayName").asText() : null);
+                    groupDTO.setDescription(groupNode.has("description") ? groupNode.get("description").asText() : null);
+                    groups.add(groupDTO);
+                }
+            }
+
+            return groups;
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to retrieve security groups: " + e.getMessage(), e);
+        }
+    }
 }
