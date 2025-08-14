@@ -1,0 +1,38 @@
+# Kubernetes-optimized Dockerfile for Container-Entra-auth Service
+# 12-Factor App Compliant - Minimal image to avoid network issues
+
+# Runtime Stage - Use base JRE image (curl already available)
+FROM eclipse-temurin:17-jre
+
+# Create non-root user for security (12-Factor: Processes)
+RUN groupadd -g 1001 appgroup && \
+    useradd -u 1001 -g appgroup -s /bin/bash appuser
+
+# Set working directory
+WORKDIR /app
+
+# Copy the pre-built JAR file (build locally first)
+COPY target/azure-graph-api-0.0.1-SNAPSHOT.jar app.jar
+
+# Change ownership to non-root user
+RUN chown -R appuser:appgroup /app
+
+# Switch to non-root user
+USER appuser
+
+# Expose port 8080 (12-Factor: Port binding)
+EXPOSE 8080
+
+# Health check for Kubernetes liveness/readiness probes (using wget if curl not available)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health/liveness || exit 1
+
+# 12-Factor: Disposability - Optimized JVM settings for containers
+ENTRYPOINT ["java", \
+    "-XX:+UseContainerSupport", \
+    "-XX:MaxRAMPercentage=75.0", \
+    "-XX:+UseG1GC", \
+    "-XX:+UseStringDeduplication", \
+    "-Djava.security.egd=file:/dev/./urandom", \
+    "-Dspring.profiles.active=k8s", \
+    "-jar", "/app/app.jar"]

@@ -1,0 +1,82 @@
+# Kubernetes Profile Configuration
+# 12-Factor App: All configuration externalized via environment variables
+
+# Factor III: Config - Store config in the environment
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful # Factor IX: Disposability
+
+# Factor IX: Disposability - Graceful shutdown
+spring:
+  application:
+    name: ${APP_NAME:container-entra-auth}
+  lifecycle:
+    timeout-per-shutdown-phase: ${SHUTDOWN_TIMEOUT:30s}
+  
+  # Azure Entra ID OAuth2 Configuration (from Kubernetes Secrets)
+  security:
+    oauth2:
+      client:
+        registration:
+          azure:
+            client-id: ${AZURE_CLIENT_ID}
+            client-secret: ${AZURE_CLIENT_SECRET}
+            scope:
+              - openid
+              - profile
+              - email
+              - https://graph.microsoft.com/User.Read
+              - https://graph.microsoft.com/Directory.Read.All
+              - https://graph.microsoft.com/GroupMember.Read.All
+            authorization-grant-type: authorization_code
+            redirect-uri: ${AZURE_REDIRECT_URI}
+            client-name: Azure Entra ID
+        provider:
+          azure:
+            authorization-uri: https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/authorize
+            token-uri: https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/token
+            user-info-uri: https://graph.microsoft.com/oidc/userinfo
+            jwk-set-uri: https://login.microsoftonline.com/${AZURE_TENANT_ID}/discovery/v2.0/keys
+            user-name-attribute: sub
+
+# API Configuration (from Kubernetes ConfigMap)
+api:
+  base-path: ${API_BASE_PATH:/api/v1}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
+    allowed-methods: ${CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,OPTIONS}
+    allowed-headers: ${CORS_ALLOWED_HEADERS:*}
+
+# Factor XI: Logs - Treat logs as event streams (stdout/stderr)
+logging:
+  level:
+    org.springframework.security: ${LOG_LEVEL_SECURITY:INFO}
+    org.springframework.security.oauth2: ${LOG_LEVEL_OAUTH2:INFO}
+    com.example.azuregraphapi: ${LOG_LEVEL_APP:INFO}
+    ROOT: ${LOG_LEVEL_ROOT:INFO}
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
+
+# Factor IX: Disposability - Health checks for Kubernetes
+management:
+  server:
+    port: ${MANAGEMENT_PORT:8080}
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: ${METRICS_ENABLED:true}

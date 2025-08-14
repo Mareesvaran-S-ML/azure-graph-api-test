@@ -1,0 +1,23 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: container-entra-auth
+networking:
+  # Use host network for better connectivity
+  disableDefaultCNI: false
+  kubeProxyMode: "iptables"
+nodes:
+- role: control-plane
+  extraMounts:
+  - hostPath: /etc/resolv.conf
+    containerPath: /etc/resolv.conf
+    readOnly: true
+  kubeadmConfigPatches:
+  - |
+    kind: ClusterConfiguration
+    networking:
+      dnsDomain: "cluster.local"
+    ---
+    kind: KubeletConfiguration
+    clusterDNS:
+    - "10.96.0.10"
+    clusterDomain: "cluster.local"
