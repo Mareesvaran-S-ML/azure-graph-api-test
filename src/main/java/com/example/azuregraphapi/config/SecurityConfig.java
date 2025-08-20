@@ -3,6 +3,7 @@ package com.example.azuregraphapi.config;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -22,6 +23,17 @@ public class SecurityConfig {
     private SessionAuthenticationFilter sessionAuthenticationFilter;
 
     @Bean
+    @Order(1)
+    public SecurityFilterChain actuatorFilterChain(HttpSecurity http) throws Exception {
+        return http
+                .securityMatcher("/actuator/**")
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(authz -> authz.anyRequest().permitAll())
+                .build();
+    }
+
+    @Bean
+    @Order(2)
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf
@@ -30,7 +42,6 @@ public class SecurityConfig {
                 .addFilterBefore(sessionAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(authz -> authz
                         .requestMatchers("/api/auth/login", "/api/auth/logout").permitAll()
-                        .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/health").permitAll()
                         .anyRequest().authenticated()
                 )

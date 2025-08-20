@@ -1,5 +1,5 @@
 server:
-  port: 8082
+  port: ${SERVER_PORT:8080}
 
 spring:
   security:
@@ -26,15 +26,39 @@ spring:
             user-info-uri: https://graph.microsoft.com/oidc/userinfo
             jwk-set-uri: https://login.microsoftonline.com/4f402a0a-52d8-435d-9834-23cc12ede3ff/discovery/v2.0/keys
             user-name-attribute: sub
-#            authorization-uri: https://login.microsoftonline.com/${AZURE_TENANT_NAME:qcellsces.onmicrosoft.com}/oauth2/v2.0/authorize
-#            token-uri: https://login.microsoftonline.com/${AZURE_TENANT_NAME:qcellsces.onmicrosoft.com}/oauth2/v2.0/token
-#            user-info-uri: https://graph.microsoft.com/oidc/userinfo
-#            jwk-set-uri: https://login.microsoftonline.com/${AZURE_TENANT_NAME:qcellsces.onmicrosoft.com}/discovery/v2.0/keys
-#            user-name-attribute: sub
+
+# Actuator configuration for health checks
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
 
 logging:
   level:
-    org.springframework.security: DEBUG
-    org.springframework.security.oauth2: DEBUG
+    org.springframework.security: ${LOGGING_LEVEL_SECURITY:INFO}
+    org.springframework.security.oauth2: ${LOGGING_LEVEL_SECURITY:INFO}
     org.springframework.web.reactive: DEBUG
-    ROOT: DEBUG
+    ROOT: ${LOGGING_LEVEL_ROOT:INFO}
+    com.example.loginservice: ${LOGGING_LEVEL_ROOT:INFO}
+
+# Application-specific configuration
+app:
+  pagination:
+    default-page-size: ${DEFAULT_PAGE_SIZE:20}
+    max-page-size: ${MAX_PAGE_SIZE:100}
+
+  # Integration with azure-entra-auth-test service
+  external-services:
+    azure-entra-auth:
+      url: ${AZURE_ENTRA_AUTH_SERVICE_URL:http://container-entra-auth-service.dev.svc.cluster.local:8080}

@@ -1,0 +1,187 @@
+{
+	"info": {
+		"_postman_id": "azure-graph-simple-collection",
+		"name": "Azure Graph API - Simple",
+		"description": "Simple collection for testing Azure Graph API on localhost:8089",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Health Check",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8089/health-check",
+					"protocol": "http",
+					"host": ["localhost"],
+					"port": "8089",
+					"path": ["health-check"]
+				}
+			}
+		},
+		{
+			"name": "2. Login",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"username\": \"maris@aravindmaklabsoutlook.onmicrosoft.com\",\n    \"password\": \"changeme\"\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8089/web/auth/login",
+					"protocol": "http",
+					"host": ["localhost"],
+					"port": "8089",
+					"path": ["web", "auth", "login"]
+				}
+			}
+		},
+		{
+			"name": "3. Get User Profile",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Cookie",
+						"value": "JSESSIONID=YOUR_SESSION_CODE_HERE",
+						"description": "Replace YOUR_SESSION_CODE_HERE with session_code from login response"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:8089/web/user/profile",
+					"protocol": "http",
+					"host": ["localhost"],
+					"port": "8089",
+					"path": ["web", "user", "profile"]
+				}
+			}
+		},
+		{
+			"name": "4. Get Users (Page 0, Size 5)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Cookie",
+						"value": "JSESSIONID=YOUR_SESSION_CODE_HERE",
+						"description": "Replace YOUR_SESSION_CODE_HERE with session_code from login response"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:8089/web/users?page=0&size=5",
+					"protocol": "http",
+					"host": ["localhost"],
+					"port": "8089",
+					"path": ["web", "users"],
+					"query": [
+						{
+							"key": "page",
+							"value": "0"
+						},
+						{
+							"key": "size",
+							"value": "5"
+						}
+					]
+				}
+			}
+		},
+		{
+			"name": "5. Get Users (Page 1, Size 3)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Cookie",
+						"value": "JSESSIONID=YOUR_SESSION_CODE_HERE",
+						"description": "Replace YOUR_SESSION_CODE_HERE with session_code from login response"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:8089/web/users?page=1&size=3",
+					"protocol": "http",
+					"host": ["localhost"],
+					"port": "8089",
+					"path": ["web", "users"],
+					"query": [
+						{
+							"key": "page",
+							"value": "1"
+						},
+						{
+							"key": "size",
+							"value": "3"
+						}
+					]
+				}
+			}
+		},
+		{
+			"name": "6. Get All Roles",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Cookie",
+						"value": "JSESSIONID=YOUR_SESSION_CODE_HERE",
+						"description": "Replace YOUR_SESSION_CODE_HERE with session_code from login response"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:8089/web/roles",
+					"protocol": "http",
+					"host": ["localhost"],
+					"port": "8089",
+					"path": ["web", "roles"]
+				}
+			}
+		},
+		{
+			"name": "7. Get All Groups",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Cookie",
+						"value": "JSESSIONID=YOUR_SESSION_CODE_HERE",
+						"description": "Replace YOUR_SESSION_CODE_HERE with session_code from login response"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:8089/web/groups",
+					"protocol": "http",
+					"host": ["localhost"],
+					"port": "8089",
+					"path": ["web", "groups"]
+				}
+			}
+		},
+		{
+			"name": "8. Logout",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Cookie",
+						"value": "JSESSIONID=YOUR_SESSION_CODE_HERE",
+						"description": "Replace YOUR_SESSION_CODE_HERE with session_code from login response"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:8089/web/auth/logout",
+					"protocol": "http",
+					"host": ["localhost"],
+					"port": "8089",
+					"path": ["web", "auth", "logout"]
+				}
+			}
+		}
+	]
+}

@@ -50,10 +50,10 @@ api:
 # Factor XI: Logs - Treat logs as event streams (stdout/stderr)
 logging:
   level:
-    org.springframework.security: ${LOG_LEVEL_SECURITY:INFO}
-    org.springframework.security.oauth2: ${LOG_LEVEL_OAUTH2:INFO}
-    com.example.azuregraphapi: ${LOG_LEVEL_APP:INFO}
-    ROOT: ${LOG_LEVEL_ROOT:INFO}
+    org.springframework.security: ${LOGGING_LEVEL_SECURITY:INFO}
+    org.springframework.security.oauth2: ${LOGGING_LEVEL_SECURITY:INFO}
+    com.example.azuregraphapi: ${LOGGING_LEVEL_ROOT:INFO}
+    ROOT: ${LOGGING_LEVEL_ROOT:INFO}
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
 

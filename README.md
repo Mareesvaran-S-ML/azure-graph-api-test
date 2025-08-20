@@ -1,119 +1,199 @@
-# Container-Entra-auth
+# Azure Graph API - Complete Deployment Guide
 
-## 🎯 **Azure AD Authentication Service**
+## 🚀 **Quick Start - One Command Deployment**
 
-A production-ready Spring Boot application that provides Azure Entra ID (Azure AD) authentication services, containerized and deployed on Kubernetes with full 12-Factor App compliance.
-
-## ✅ **Tested & Verified**
-
-This project has been **fully tested and verified** to work with:
-- ✅ **Azure AD Authentication**: Full OAuth2 flow working
-- ✅ **Microsoft Graph API**: User profile retrieval functional  
-- ✅ **Kubernetes Deployment**: Minikube deployment successful
-- ✅ **DNS Resolution**: External connectivity fixed
-- ✅ **Session Management**: Secure session handling
-- ✅ **12-Factor Compliance**: All principles implemented
-
-## 🚀 **Quick Start**
-
-### **Option 1: Kubernetes (Recommended)**
 ```bash
-# Install Minikube
-curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-sudo install minikube-linux-amd64 /usr/local/bin/minikube && rm minikube-linux-amd64
+./scripts/deploy-azure-services.sh
+```
 
-# Start cluster and deploy
-minikube start --driver=none --kubernetes-version=v1.28.0
-./scripts/build-k8s.sh
-kubectl apply -f k8s/namespace.yaml
-kubectl create secret generic container-entra-auth-secret --namespace=dev \
-  --from-literal=AZURE_CLIENT_ID="9f6cf3b0-c7fe-4220-86fd-a58ac086a692" \
-  --from-literal=AZURE_CLIENT_SECRET="changeme" \
-  --from-literal=AZURE_TENANT_ID="4f402a0a-52d8-435d-9834-23cc12ede3ff"
-kubectl apply -f k8s/configmap.yaml k8s/deployment.yaml k8s/service.yaml
+This single command deploys the complete Azure Graph API and Container Login microservices stack with DNS-based service discovery.
 
-# Test authentication
-curl -X POST http://localhost:30080/api/auth/login \
+---
+
+## 📋 **What deploy-azure-services.sh Does**
+
+### **🎯 Complete Orchestration:**
+1. **Minikube Setup** - Creates Kubernetes cluster with Docker driver
+2. **Secret Management** - Creates shared Azure credentials secret
+3. **Azure Graph API Service** - Builds and deploys backend service
+4. **Container Login Service** - Builds and deploys frontend gateway
+5. **Port Forwarding** - Exposes services to localhost
+6. **Health Verification** - Confirms all services are running
+
+### **✅ End Result:**
+- **Azure Graph API Service**: `http://localhost:8087` (backend)
+- **Container Login Service**: `http://localhost:8089` (frontend gateway)
+- **DNS Resolution**: Services communicate using `container-entra-auth-service:8080`
+- **Single Replica**: Each service runs exactly 1 pod
+- **Health Checks**: All pods healthy and ready
+
+---
+
+## 🔧 **Prerequisites**
+
+### **Required Tools:**
+- **Docker** - Container runtime
+- **Minikube** - Local Kubernetes cluster
+- **kubectl** - Kubernetes CLI
+- **Java 17+** - For building Spring Boot applications
+- **Maven** - For dependency management
+
+### **Configuration:**
+- **`.env` file** - Contains Azure AD credentials and configuration
+- **Kubernetes manifests** - In `k8s/` and `container-login-service/k8s/` directories
+
+---
+
+## 📊 **Architecture Overview**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Minikube Cluster                         │
+│                                                             │
+│  ┌─────────────────────┐    ┌─────────────────────────────┐ │
+│  │ Container Login     │    │ Azure Graph API             │ │
+│  │ Service             │────│ Service                     │ │
+│  │ (Frontend Gateway)  │    │ (Backend)                   │ │
+│  │ Port: 8080          │    │ Port: 8080                  │ │
+│  └─────────────────────┘    └─────────────────────────────┘ │
+│           │                              │                  │
+│           │                              │                  │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │              Shared Secret                              │ │
+│  │         (container-entra-auth-secret)                   │ │
+│  │     Contains: Azure AD credentials, logging config     │ │
+│  └─────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+           │                              │
+           │                              │
+    Port Forward                   Port Forward
+    localhost:8089                 localhost:8087
+```
+
+---
+
+## 🎯 **Service Communication**
+
+### **DNS-Based Service Discovery:**
+- Container Login Service calls: `http://container-entra-auth-service:8080`
+- No hardcoded IPs or external URLs
+- Kubernetes DNS automatically resolves service names
+- Follows 12-Factor App principles
+
+### **API Flow:**
+1. **User** → `localhost:8089` → **Container Login Service**
+2. **Container Login Service** → `container-entra-auth-service:8080` → **Azure Graph API Service**
+3. **Azure Graph API Service** → **Microsoft Graph API** → **Azure AD**
+
+---
+
+## 🧪 **Testing the Deployment**
+
+### **1. Health Check:**
+```bash
+curl http://localhost:8089/health-check
+```
+
+### **2. Login:**
+```bash
+curl -X POST http://localhost:8089/web/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username": "maris@aravindmaklabsoutlook.onmicrosoft.com", "password": "experiment!ngSecret$"}'
+  -d '{"username": "maris@aravindmaklabsoutlook.onmicrosoft.com", "password": "changeme"}'
 ```
 
-### **Option 2: Docker**
+### **3. Use Postman Collection:**
+Import `postman/Azure-Graph-API-Simple.postman_collection.json` for complete API testing.
+
+---
+
+## 🔄 **Cleanup and Redeploy**
+
+### **Full Cleanup:**
 ```bash
-./scripts/run-docker.sh
+minikube delete
+docker system prune -a -f
+./mvnw clean && cd container-login-service && ./mvnw clean
 ```
 
-## 📚 **Documentation**
-
-| Document | Description |
-|----------|-------------|
-| **[QUICK-DEPLOY.md](QUICK-DEPLOY.md)** | ⚡ Copy-paste deployment commands |
-| **[DEPLOYMENT-GUIDE.md](DEPLOYMENT-GUIDE.md)** | 📖 Complete deployment guide |
-| **[README-Kubernetes.md](README-Kubernetes.md)** | ☸️ Kubernetes deployment details |
-| **[KUBERNETES-OPTIONS.md](KUBERNETES-OPTIONS.md)** | 🔧 Alternative K8s platforms |
-
-## 🎯 **Key Features**
-
-- **🔐 Azure AD Integration**: Full OAuth2 authentication flow
-- **📊 Microsoft Graph API**: User profile and permissions retrieval
-- **🔒 Session Management**: Secure session handling with CSRF protection
-- **☸️ Kubernetes Ready**: Production-ready manifests with health checks
-- **📏 12-Factor Compliant**: All 12 factors implemented
-- **🛡️ Security**: Non-root containers, read-only filesystem, secure headers
-- **📈 Scalable**: Horizontal pod autoscaling ready
-- **🔍 Monitoring**: Health endpoints and comprehensive logging
-
-## 🧪 **API Endpoints**
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Health check |
-| `/api/auth/login` | POST | Azure AD authentication |
-| `/api/auth/user` | GET | Get user profile |
-| `/api/auth/status` | GET | Authentication status |
-| `/api/auth/permissions` | GET | User permissions |
-
-## ✅ **Success Response**
-
-```json
-{
-  "authenticated": true,
-  "expires_at": "2025-08-14T13:34:59.317540406Z",
-  "user_id": "maris@aravindmaklabsoutlook.onmicrosoft.com",
-  "session_code": "66C2BD858D5D102AC0F0236AA5FDF857",
-  "message": "Authentication successful"
-}
+### **Fresh Deploy:**
+```bash
+./scripts/deploy-azure-services.sh
 ```
 
-## 🏗️ **Architecture**
+## 🔐 **Secret Management**
 
-```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   User/Client   │───▶│  Kubernetes      │───▶│   Azure AD      │
-│                 │    │  (Minikube)      │    │                 │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-                              │
-                              ▼
-                       ┌──────────────────┐
-                       │ Microsoft Graph  │
-                       │      API         │
-                       └──────────────────┘
+### **Update Azure AD Credentials:**
+```bash
+# Edit .env file with new credentials
+nano .env
+
+# Recreate secret and restart services
+./scripts/create-secret.sh
+kubectl rollout restart deployment/container-entra-auth -n dev
+kubectl rollout restart deployment/container-login-service -n dev
 ```
 
-## 🔧 **Configuration**
+**For detailed secret management:** See `SECRET-MANAGEMENT.md`
 
-| Variable | Value | Description |
-|----------|-------|-------------|
-| `AZURE_CLIENT_ID` | `9f6cf3b0-c7fe-4220-86fd-a58ac086a692` | Azure App Registration Client ID |
-| `AZURE_CLIENT_SECRET` | `changeme` | Azure App Registration Secret |
-| `AZURE_TENANT_ID` | `4f402a0a-52d8-435d-9834-23cc12ede3ff` | Azure Tenant ID |
+---
 
-## 🎉 **Production Ready**
+## 🚨 **Troubleshooting**
 
-Your Container-Entra-auth service is fully tested and production-ready! 🚀
+### **Services Not Starting:**
+```bash
+kubectl get pods -n dev
+kubectl logs -n dev <pod-name>
+```
 
-- ✅ **Tested Authentication**: Azure AD OAuth2 flow working
-- ✅ **Tested Deployment**: Kubernetes manifests verified
-- ✅ **Tested Networking**: DNS resolution and external connectivity
-- ✅ **Tested Security**: Session management and CSRF protection
-- ✅ **Tested Scalability**: Horizontal scaling ready
+### **DNS Issues:**
+```bash
+kubectl get services -n dev
+kubectl exec -n dev <pod-name> -- nslookup container-entra-auth-service
+```
+
+### **Port Forwarding Issues:**
+```bash
+kubectl port-forward -n dev service/container-login-service 8089:8080 &
+kubectl port-forward -n dev service/container-entra-auth-service 8087:8080 &
+```
+
+---
+
+## 📁 **Project Structure**
+
+```
+azure-graph-api-test/
+├── scripts/
+│   └── deploy-azure-services.sh  ← Master deployment script
+├── container-login-service/       ← Frontend gateway service
+│   └── Dockerfile                 ← Container build (k8s profile)
+├── postman/                       ← API testing collection
+├── k8s/                          ← Azure Graph API Kubernetes manifests
+├── Dockerfile.k8s                 ← Azure Graph API container build (k8s profile)
+├── .env                          ← Configuration (Azure credentials)
+├── ENV-SETUP-GUIDE.md            ← .env file creation guide
+├── SECRET-MANAGEMENT.md          ← Secret update and management guide
+├── MANUAL-DEPLOYMENT.md          ← Step-by-step deployment guide
+└── README.md                     ← This file
+```
+
+## ⚙️ **Configuration Consistency**
+
+Both services use consistent configuration:
+- **Spring Profile**: `k8s` (set in both Dockerfiles and .env)
+- **Container Optimization**: JVM settings optimized for Kubernetes
+- **Health Checks**: Both services include health check endpoints
+- **12-Factor Compliance**: Stateless, disposable processes
+
+---
+
+## 🎉 **Success Indicators**
+
+✅ **Minikube Status**: `minikube status` shows "Running"  
+✅ **Pods Ready**: All pods show "1/1 Running"  
+✅ **Services Available**: Both localhost:8089 and localhost:8087 respond  
+✅ **DNS Working**: Health check shows Azure service connection success  
+✅ **Authentication**: Login returns session code  
+✅ **API Calls**: All endpoints return expected data  
+
+**Ready for development and testing!** 🚀

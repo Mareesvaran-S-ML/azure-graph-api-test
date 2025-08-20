@@ -44,7 +44,7 @@ APP_PORT=${APP_PORT:-8087}
 echo ""
 echo "🚀 Starting Container-Entra-auth on port ${APP_PORT}..."
 
-# Run container with host networking for Azure AD access
+# Run container
 docker run -d \
   --name container-entra-auth-prod \
   --network host \

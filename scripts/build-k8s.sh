@@ -21,7 +21,7 @@ echo "📁 Project root: ${PROJECT_ROOT}"
 # Change to project root directory
 cd "${PROJECT_ROOT}"
 
-# Step 1: Build JAR locally first to avoid Docker network issues
+# Build JAR locally
 echo "🔨 Building JAR file locally..."
 if [ -f "./mvnw" ]; then
     echo "Using Maven wrapper..."
@@ -40,12 +40,21 @@ fi
 
 echo "✅ JAR build successful!"
 
-# Step 2: Build the Docker image using pre-built JAR
+# Build Docker image
 echo "🐳 Building Docker image with pre-built JAR..."
 docker build -f Dockerfile.k8s -t ${FULL_IMAGE_NAME} .
 
 echo "✅ Docker image built successfully!"
 echo "🏷️  Image: ${FULL_IMAGE_NAME}"
+
+# Load image into Minikube if it's running
+echo "📦 Loading image into Minikube..."
+if minikube status >/dev/null 2>&1; then
+    minikube image load ${FULL_IMAGE_NAME}
+    echo "✅ Image loaded into Minikube successfully!"
+else
+    echo "⚠️  Minikube not running, skipping image load"
+fi
 
 # Verify the image
 echo "📋 Image details:"

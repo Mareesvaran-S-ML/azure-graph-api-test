@@ -1,7 +1,5 @@
 package com.example.azuregraphapi.controller;
 
-import com.example.azuregraphapi.dto.GroupDTO;
-import com.example.azuregraphapi.dto.UserDTO;
 import com.example.azuregraphapi.service.GraphApiService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -14,12 +12,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
-import java.io.IOException;
 
 @RestController
 @RequestMapping("/api")
@@ -31,33 +27,50 @@ public class UserController {
     @Autowired
     private OAuth2AuthorizedClientService authorizedClientService;
 
-    /**
-     * Endpoint 1: Get current authenticated user's details including roles and groups
-     */
-    @GetMapping("/user/profile")
-    public ResponseEntity<UserDTO> getCurrentUserProfile(Authentication authentication, HttpServletRequest request) {
-        try {
-            UserDTO user = graphApiService.getCurrentUser(authentication, request);
-            return ResponseEntity.ok(user);
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(null);
-        }
-    }
-
-
+    // ========================================
+    // SERVICE STATUS AND HEALTH ENDPOINTS
+    // ========================================
 
     /**
-     * Get all users (requires Directory.Read.All permission)
+     * Service health check endpoint for backend service consumption
      */
-    @GetMapping("/users")
-    public ResponseEntity<List<UserDTO>> getAllUsers(Authentication authentication, HttpServletRequest request) {
-        try {
-            List<UserDTO> users = graphApiService.getAllUsers(authentication, request);
-            return ResponseEntity.ok(users);
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(null);
-        }
+    @GetMapping("/health")
+    public ResponseEntity<Map<String, Object>> health() {
+        Map<String, Object> health = new HashMap<>();
+        health.put("service", "container-entra-auth");
+        health.put("status", "UP");
+        health.put("timestamp", System.currentTimeMillis());
+        health.put("version", "1.0.0");
+        health.put("description", "Azure Graph API Backend Service");
+        return ResponseEntity.ok(health);
     }
+
+    /**
+     * Service status endpoint with detailed information
+     */
+    @GetMapping("/status")
+    public ResponseEntity<Map<String, Object>> status() {
+        Map<String, Object> status = new HashMap<>();
+        status.put("service", "container-entra-auth");
+        status.put("status", "UP");
+        status.put("timestamp", System.currentTimeMillis());
+        status.put("version", "1.0.0");
+        status.put("description", "Azure Graph API Backend Service");
+        status.put("endpoints", Map.of(
+            "authentication", "/api/auth/*",
+            "graph_users", "/api/graph/users",
+            "graph_user_profile", "/api/graph/user/profile",
+            "graph_roles", "/api/graph/roles",
+            "graph_groups", "/api/graph/groups"
+        ));
+        return ResponseEntity.ok(status);
+    }
+
+    // ========================================
+    // AZURE GRAPH API ENDPOINTS (with /graph prefix)
+    // ========================================
+
+
 
     /**
      * Get access token for Postman testing
@@ -111,11 +124,19 @@ public class UserController {
             sessionInfo.put("authenticated", true);
             sessionInfo.put("expires_at", client.getAccessToken().getExpiresAt());
             sessionInfo.put("login_time", System.currentTimeMillis());
-            sessionInfo.put("message", "Use this session_code as 'X-Session-Code' header in subsequent API calls");
+            sessionInfo.put("message", "Use Cookie: JSESSIONID=" + sessionId + " or X-Session-Code header for subsequent API calls");
+            sessionInfo.put("service", "container-entra-auth");
+            sessionInfo.put("api_version", "1.0.0");
 
             return ResponseEntity.ok(sessionInfo);
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "Failed to get session code: " + e.getMessage()));
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("error", "Failed to get session code");
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("timestamp", System.currentTimeMillis());
+            errorResponse.put("service", "container-entra-auth");
+            return ResponseEntity.status(500).body(errorResponse);
         }
     }
 
@@ -165,7 +186,15 @@ public class UserController {
                 result.put("user_id", authResult.get("user_id"));
                 result.put("expires_at", authResult.get("expires_at"));
                 result.put("login_time", System.currentTimeMillis());
-                result.put("message", "Use Cookie: JSESSIONID=" + sessionId + " header in subsequent API calls");
+                result.put("message", "Use Cookie: JSESSIONID=" + sessionId + " or X-Session-Code header for subsequent API calls");
+                result.put("service", "container-entra-auth");
+                result.put("api_version", "1.0.0");
+                result.put("endpoints", Map.of(
+                    "user_profile", "/api/graph/user/profile",
+                    "users", "/api/graph/users",
+                    "roles", "/api/graph/roles",
+                    "groups", "/api/graph/groups"
+                ));
 
                 response.setContentType("application/json");
                 return ResponseEntity.ok(result);
@@ -208,6 +237,8 @@ public class UserController {
 
                 result.put("success", true);
                 result.put("message", "Successfully logged out");
+                result.put("service", "container-entra-auth");
+                result.put("timestamp", System.currentTimeMillis());
             } else {
                 result.put("success", true);
                 result.put("message", "No active session found");
@@ -230,26 +261,5 @@ public class UserController {
             return ResponseEntity.status(500).body(errorResponse);
         }
     }
-    @GetMapping("/roles")
-    @ResponseBody
-    public ResponseEntity<List<String>> getAllCustomRoles(Authentication authentication, HttpServletRequest request) {
-        try {
-            List<String> roles = graphApiService.getAllCustomRoles(authentication, request);
-            return ResponseEntity.ok(roles);
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(null);
-        }
-    }
 
-    // All Security Groups API (returns JSON)
-    @GetMapping("/groups")
-    @ResponseBody
-    public ResponseEntity<List<GroupDTO>> getAllSecurityGroups(Authentication authentication, HttpServletRequest request) {
-        try {
-            List<GroupDTO> groups = graphApiService.getAllSecurityGroups(authentication, request);
-            return ResponseEntity.ok(groups);
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(null);
-        }
-    }
 }

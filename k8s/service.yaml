@@ -17,24 +17,5 @@ spec:
   selector:
     app.kubernetes.io/name: container-entra-auth
 
----
-# Optional: NodePort service for local development access
-apiVersion: v1
-kind: Service
-metadata:
-  name: container-entra-auth-nodeport
-  namespace: dev
-  labels:
-    app.kubernetes.io/name: container-entra-auth
-    app.kubernetes.io/component: service-nodeport
-    app.kubernetes.io/part-of: container-entra-auth-system
-spec:
-  type: NodePort
-  ports:
-  - name: http
-    port: 8080
-    targetPort: http
-    protocol: TCP
-    nodePort: 30080  # Access via http://localhost:30080
-  selector:
-    app.kubernetes.io/name: container-entra-auth
+# NodePort service removed - not required for internal service
+# Azure Graph API is accessed internally via ClusterIP service only

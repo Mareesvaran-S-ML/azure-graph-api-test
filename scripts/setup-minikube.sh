@@ -31,8 +31,7 @@ fi
 
 echo "🚀 Starting Minikube with proper networking..."
 
-# Start Minikube with better networking and resources
-# Use docker driver if not root, none driver if root
+# Start Minikube
 if [[ $EUID -eq 0 ]]; then
     echo "⚠️  Running as root, using none driver..."
     minikube start \
@@ -53,18 +52,18 @@ fi
 echo "⏳ Waiting for cluster to be ready..."
 kubectl wait --for=condition=Ready nodes --all --timeout=300s
 
-# Enable addons for better 12-Factor support
+# Enable addons
 echo "🔧 Enabling Kubernetes addons..."
 minikube addons enable ingress
 minikube addons enable metrics-server
 
-# Configure Docker environment to use Minikube's Docker daemon (if using docker driver)
+# Configure Docker environment
 if [[ $EUID -ne 0 ]]; then
     echo "🐳 Configuring Docker environment..."
     eval $(minikube docker-env)
 fi
 
-# Build image in Minikube's Docker environment
+# Build image in Minikube
 echo "📦 Building Docker image in Minikube..."
 ./scripts/build-k8s.sh
 

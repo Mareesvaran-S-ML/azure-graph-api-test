@@ -37,17 +37,19 @@ kubectl apply -f k8s/namespace.yaml
 echo "📝 Creating ConfigMap..."
 kubectl apply -f k8s/configmap.yaml
 
-echo "🔐 Creating Secret (template)..."
-echo "⚠️  WARNING: You need to update k8s/secret.yaml with your actual Azure credentials"
-echo "   Or create the secret manually with:"
-echo "   kubectl create secret generic container-entra-auth-secret \\"
-echo "     --namespace=dev \\"
-echo "     --from-literal=AZURE_CLIENT_ID=your-client-id \\"
-echo "     --from-literal=AZURE_CLIENT_SECRET=your-client-secret \\"
-echo "     --from-literal=AZURE_TENANT_ID=your-tenant-id"
-echo ""
-read -p "Press Enter to continue with template secret (you'll need to update it later)..."
-kubectl apply -f k8s/secret.yaml
+echo "🔐 Checking Secret..."
+if kubectl get secret container-entra-auth-secret -n dev &>/dev/null; then
+    echo "✅ Secret already exists, skipping creation"
+else
+    echo "📄 Secret not found, creating from .env file..."
+    if [[ -f ".env" ]]; then
+        ./scripts/create-secret.sh
+    else
+        echo "⚠️  WARNING: .env file not found!"
+        echo "   Please create a .env file with your Azure credentials or run deploy-azure-services.sh"
+        echo "   Continuing without secret creation..."
+    fi
+fi
 
 echo "🚀 Creating Deployment..."
 kubectl apply -f k8s/deployment.yaml
@@ -68,5 +70,5 @@ echo "📋 To view logs:"
 echo "kubectl logs -n dev -l app.kubernetes.io/name=container-entra-auth -f"
 echo ""
 echo "🌐 To access the application:"
-echo "kubectl port-forward -n dev service/container-entra-auth-service 8080:8080"
-echo "Then visit: http://localhost:8080"
+echo "kubectl port-forward -n dev service/container-entra-auth-service 8087:8080 --address=0.0.0.0"
+echo "Then visit: http://localhost:8087"
