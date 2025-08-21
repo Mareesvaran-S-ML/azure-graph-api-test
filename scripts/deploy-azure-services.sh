@@ -221,6 +221,8 @@ deploy_azure_graph_api() {
         print_success "✅ Azure Graph API service build completed successfully"
     else
         print_error "❌ Azure Graph API service build failed"
+        print_step "This might be due to network issues or Docker registry timeouts."
+        print_step "You can try running the script again or check your internet connection."
         exit 1
     fi
 
@@ -373,7 +375,7 @@ main() {
     print_header "AZURE GRAPH API & CONTAINER LOGIN SERVICE DEPLOYMENT"
     echo "This script will deploy both services with single replica configuration."
     echo ""
-    
+
     # Execute all steps
     check_and_install_minikube
     verify_coredns
@@ -385,7 +387,7 @@ main() {
     setup_port_forwarding
     verify_deployment
     display_final_info
-    
+
     echo -e "${GREEN}🚀 Deployment completed successfully!${NC}"
     echo "You can now test the services using Postman or curl."
 }

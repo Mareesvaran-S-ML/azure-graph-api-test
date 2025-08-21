@@ -53,27 +53,6 @@ spec:
           value: "100"
         # No authentication credentials needed - this service acts as a proxy
         # All authentication is handled by azure-entra-auth-test service
-        
-        # Health checks
-        livenessProbe:
-          httpGet:
-            path: /actuator/health
-            port: http
-            scheme: HTTP
-          initialDelaySeconds: 60
-          periodSeconds: 30
-          timeoutSeconds: 5
-          failureThreshold: 3
-
-        readinessProbe:
-          httpGet:
-            path: /actuator/health
-            port: http
-            scheme: HTTP
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
 
         # Resource limits - Increased for Spring Boot application
         resources:

@@ -13,35 +13,41 @@ import java.util.List;
 /**
  * CORS Configuration for Container Login Service
  *
- * Uses CorsConfigurationSource approach for reliable CORS handling
- * Allows localhost origins but blocks 127.0.0.1 for security
+ * Allows specific origins for frontend applications to access the login service
  */
 @Configuration
-public class CustomCorsConfig {
+public class CorsConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
         // === Allowed Origins ===
-        // localhost is allowed, but 127.0.0.1 is NOT allowed
+        // Only allow specific localhost origins
         List<String> allowedOrigins = Arrays.asList(
             "http://localhost:3000",           // React/Vue/Angular dev server
-            "http://localhost:8080",           // Local backend
-            "http://localhost:8087",           // Azure Graph API service
-            "http://localhost:8089",           // Container Login service
-            "https://app.yourdomain.com",      // Production frontend
-            "null"                             // For file:// protocol testing
-            // 127.0.0.1 addresses are intentionally excluded for security
+            "http://localhost:8089",           // Container Login service (self)
+            "http://localhost:8087"            // Azure Graph API service
         );
 
-        configuration.setAllowedOrigins(allowedOrigins);
+        configuration.setAllowedOriginPatterns(allowedOrigins);
 
         // === Allowed Methods ===
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
 
         // === Allowed Headers ===
-        configuration.setAllowedHeaders(Arrays.asList("*"));
+        // Specific headers when allowCredentials is true
+        configuration.setAllowedHeaders(Arrays.asList(
+            "Authorization", 
+            "Content-Type", 
+            "X-Requested-With",
+            "Accept",
+            "Origin",
+            "Access-Control-Request-Method",
+            "Access-Control-Request-Headers",
+            "Cookie",
+            "X-Session-Code"
+        ));
 
         // === Allow Credentials (CRITICAL for cookies and sessions) ===
         configuration.setAllowCredentials(true);
