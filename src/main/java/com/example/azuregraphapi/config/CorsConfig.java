@@ -21,7 +21,7 @@ import java.util.List;
 @Configuration
 public class CorsConfig implements WebMvcConfigurer {
 
-    @Value("${api.cors.allowed-origins:http://localhost:3000,http://localhost:8080,http://localhost:8089}")
+    @Value("${api.cors.allowed-origins:http://localhost:3000,http://localhost:8080,http://localhost:8087,http://localhost:8089}")
     private String allowedOrigins;
 
     @Value("${api.cors.allowed-methods:GET,POST,PUT,DELETE,OPTIONS}")
@@ -37,7 +37,8 @@ public class CorsConfig implements WebMvcConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         List<String> origins = Arrays.asList(allowedOrigins.split(","));
         List<String> methods = Arrays.asList(allowedMethods.split(","));
-        
+
+        // NOTE: Only localhost origins are allowed, 127.0.0.1 is blocked for security
         registry.addMapping("/**")
                 .allowedOrigins(origins.toArray(new String[0]))
                 .allowedMethods(methods.toArray(new String[0]))
@@ -55,6 +56,7 @@ public class CorsConfig implements WebMvcConfigurer {
         CorsConfiguration configuration = new CorsConfiguration();
         
         // Parse allowed origins from configuration
+        // NOTE: Only localhost origins are allowed, 127.0.0.1 is blocked for security
         List<String> origins = Arrays.asList(allowedOrigins.split(","));
         configuration.setAllowedOrigins(origins);
         
