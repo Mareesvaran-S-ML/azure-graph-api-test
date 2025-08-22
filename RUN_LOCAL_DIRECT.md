@@ -63,7 +63,7 @@ curl http://localhost:8089/
 # Test login endpoint
 curl -X POST http://localhost:8089/web/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"maris@aravindmaklabsoutlook.onmicrosoft.com","password":"experiment!ngSecret$"}'
+  -d '{"username":"maris@aravindmaklabsoutlook.onmicrosoft.com","password":"changeme"}'
 ```
 
 ## Postman Testing
