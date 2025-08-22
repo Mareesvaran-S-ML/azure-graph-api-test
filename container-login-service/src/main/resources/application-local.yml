@@ -1,6 +1,11 @@
 # Local development configuration for Container Login Service
 server:
   port: 8089
+  servlet:
+    session:
+      cookie:
+        same-site: None
+        secure: false   # set true if running on HTTPS
 
 spring:
   application:
