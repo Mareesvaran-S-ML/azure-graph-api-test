@@ -76,7 +76,7 @@ logs/
 .env.local
 .env.*.local
 
-# Spring Boot
-application-*.yml
-application-*.yaml
-application-*.properties
+# # Spring Boot
+# application-*.yml
+# application-*.yaml
+# application-*.properties

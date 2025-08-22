@@ -1,0 +1,59 @@
+# Local development configuration for Azure Auth Service
+server:
+  port: 8080
+
+spring:
+  application:
+    name: azure-graph-api
+  
+  # Azure Entra ID OAuth2 Configuration
+  security:
+    oauth2:
+      client:
+        registration:
+          azure:
+            client-id: ${AZURE_CLIENT_ID}
+            client-secret: ${AZURE_CLIENT_SECRET}
+            scope:
+              - openid
+              - profile
+              - email
+              - https://graph.microsoft.com/User.Read
+              - https://graph.microsoft.com/Directory.Read.All
+              - https://graph.microsoft.com/GroupMember.Read.All
+            authorization-grant-type: authorization_code
+            redirect-uri: "http://localhost:8080/login/oauth2/code/azure"
+            client-name: Azure
+        provider:
+          azure:
+            authorization-uri: https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/authorize
+            token-uri: https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/token
+            user-info-uri: https://graph.microsoft.com/oidc/userinfo
+            jwk-set-uri: https://login.microsoftonline.com/${AZURE_TENANT_ID}/discovery/v2.0/keys
+            user-name-attribute: sub
+
+# Actuator configuration for health checks
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+
+# Logging configuration for local development
+logging:
+  level:
+    org.springframework.security: ${LOGGING_LEVEL_SECURITY:DEBUG}
+    org.springframework.security.oauth2: ${LOGGING_LEVEL_SECURITY:DEBUG}
+    org.springframework.web.reactive: DEBUG
+    ROOT: ${LOGGING_LEVEL_ROOT:INFO}
+    com.example.azuregraphapi: DEBUG

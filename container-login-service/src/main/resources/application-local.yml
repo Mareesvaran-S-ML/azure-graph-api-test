@@ -1,0 +1,31 @@
+# Local development configuration for Container Login Service
+server:
+  port: 8089
+
+spring:
+  application:
+    name: container-login-service
+
+# Application-specific configuration
+app:
+  pagination:
+    default-page-size: 20
+    max-page-size: 100
+
+# Logging configuration for local development
+logging:
+  level:
+    root: INFO
+    com.example.loginservice: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.security: DEBUG
+
+# Management endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
