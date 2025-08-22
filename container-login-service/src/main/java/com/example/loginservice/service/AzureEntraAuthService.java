@@ -1,5 +1,6 @@
 package com.example.loginservice.service;
 
+import com.example.loginservice.model.ProxyResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -315,6 +316,58 @@ public class AzureEntraAuthService {
         } catch (Exception e) {
             System.out.println("Error proxying POST to " + path + ": " + e.getMessage());
             return createErrorResponse("Failed to proxy POST request", e.getMessage());
+        }
+    }
+
+    /**
+     * Proxy POST request to azure-entra-auth-test and capture response headers (for login)
+     */
+    public ProxyResponse proxyPostWithHeaders(String path, Object requestBody, Map<String, String> headers) {
+        try {
+            System.out.println("Proxying POST request to: " + path + " (with header capture)");
+            if (headers != null && headers.containsKey("Cookie")) {
+                System.out.println("Forwarding Cookie: " + headers.get("Cookie"));
+            }
+
+            var requestSpec = webClient.post().uri(path);
+
+            // Add headers if provided
+            if (headers != null) {
+                headers.forEach((key, value) -> {
+                    System.out.println("Adding header: " + key + " = " + value);
+                    requestSpec.header(key, value);
+                });
+            }
+
+            // Add request body if provided
+            if (requestBody != null) {
+                requestSpec.bodyValue(requestBody);
+            }
+
+            return requestSpec
+                    .retrieve()
+                    .toEntity(Object.class)
+                    .timeout(Duration.ofMillis(timeout))
+                    .map(responseEntity -> {
+                        ProxyResponse proxyResponse = new ProxyResponse();
+                        proxyResponse.setBody(responseEntity.getBody());
+                        proxyResponse.setHeaders(responseEntity.getHeaders());
+                        proxyResponse.setStatusCode(responseEntity.getStatusCode());
+
+                        // Log captured cookies
+                        if (responseEntity.getHeaders().containsKey("Set-Cookie")) {
+                            System.out.println("Captured Set-Cookie headers: " + responseEntity.getHeaders().get("Set-Cookie"));
+                        }
+
+                        return proxyResponse;
+                    })
+                    .block();
+
+        } catch (Exception e) {
+            System.out.println("Error proxying POST to " + path + ": " + e.getMessage());
+            ProxyResponse errorResponse = new ProxyResponse();
+            errorResponse.setBody(createErrorResponse("Failed to proxy POST request", e.getMessage()));
+            return errorResponse;
         }
     }
 

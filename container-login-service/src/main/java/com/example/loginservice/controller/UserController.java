@@ -1,6 +1,8 @@
 package com.example.loginservice.controller;
 
+import com.example.loginservice.model.ProxyResponse;
 import com.example.loginservice.service.AzureEntraAuthService;
+import com.example.loginservice.service.SessionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
@@ -11,6 +13,7 @@ import org.springframework.http.HttpHeaders;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.time.Duration;
 
@@ -24,6 +27,9 @@ public class UserController {
 
     @Autowired
     private AzureEntraAuthService azureEntraAuthService;
+
+    @Autowired
+    private SessionService sessionService;
 
     @Value("${app.pagination.default-page-size:20}")
     private int defaultPageSize;
@@ -106,25 +112,43 @@ public class UserController {
 
     /**
      * Authentication Login - Web API endpoint that proxies to azure-entra-auth-test
-     * Now properly handles cookies in the response
+     * Now properly captures and forwards session cookies from Azure service
      */
     @PostMapping("/web/auth/login")
-    public ResponseEntity<?> login(@RequestBody Object loginRequest, HttpServletResponse response) {
+    public ResponseEntity<?> login(@RequestBody Object loginRequest, HttpServletRequest request, HttpServletResponse response) {
         try {
-            // Proxy login request to Azure Graph API service
-            Object loginResponse = azureEntraAuthService.proxyPost("/api/auth/login", loginRequest, null);
+            // Proxy login request to Azure Graph API service and capture response headers
+            ProxyResponse proxyResponse = azureEntraAuthService.proxyPostWithHeaders("/api/auth/login", loginRequest, null);
 
-            // Check if login was successful (you may need to adjust this based on your response format)
-            if (loginResponse instanceof Map) {
-                Map<?, ?> responseMap = (Map<?, ?>) loginResponse;
+            // Check if login was successful
+            if (proxyResponse.getBody() instanceof Map) {
+                Map<?, ?> responseMap = (Map<?, ?>) proxyResponse.getBody();
 
-                // If login successful, create session cookie
+                // If login successful, capture and store the Azure service session cookie
                 if (responseMap.containsKey("authenticated") && Boolean.TRUE.equals(responseMap.get("authenticated"))) {
-                    // Create session cookie for successful authentication
-                    ResponseCookie sessionCookie = ResponseCookie.from("JSESSIONID", generateSessionId())
+
+                    // Get the current user's session ID (create one if needed)
+                    String userSessionId = request.getSession().getId();
+
+                    // Extract Azure service session cookie from response headers
+                    List<String> setCookieHeaders = proxyResponse.getHeaders().get("Set-Cookie");
+                    if (setCookieHeaders != null && !setCookieHeaders.isEmpty()) {
+                        for (String setCookieHeader : setCookieHeaders) {
+                            String azureSessionCookie = sessionService.extractJSessionId(setCookieHeader);
+                            if (azureSessionCookie != null) {
+                                // Store the Azure service session cookie
+                                sessionService.storeAzureSessionCookie(userSessionId, azureSessionCookie);
+                                System.out.println("✅ Captured and stored Azure session cookie: " + azureSessionCookie);
+                                break;
+                            }
+                        }
+                    }
+
+                    // Create our own session cookie for the frontend
+                    ResponseCookie sessionCookie = ResponseCookie.from("JSESSIONID", userSessionId)
                             .httpOnly(true)
                             .secure(false)  // For development - set to true in production
-                            .sameSite("Strict")  // Don't use "None" for security
+                            .sameSite("Strict")
                             .maxAge(Duration.ofHours(1))
                             .path("/")
                             .build();
@@ -134,7 +158,7 @@ public class UserController {
                 }
             }
 
-            return ResponseEntity.ok(loginResponse);
+            return ResponseEntity.ok(proxyResponse.getBody());
 
         } catch (Exception e) {
             System.out.println("❌ Login error: " + e.getMessage());
@@ -177,8 +201,14 @@ public class UserController {
     @PostMapping("/web/auth/logout")
     public ResponseEntity<?> logout(HttpServletRequest request, HttpServletResponse response) {
         try {
+            // Get user session ID before logout
+            String userSessionId = request.getSession().getId();
+
             Map<String, String> headers = extractHeaders(request);
             Object logoutResponse = azureEntraAuthService.proxyPost("/api/auth/logout", null, headers);
+
+            // Remove stored Azure session cookie
+            sessionService.removeAzureSessionCookie(userSessionId);
 
             // Clear session cookie on logout
             ResponseCookie clearCookie = ResponseCookie.from("JSESSIONID", "")
@@ -254,14 +284,27 @@ public class UserController {
 
     /**
      * Extract important headers from request for proxying
+     * Now uses the stored Azure service session cookie instead of the frontend cookie
      */
     private Map<String, String> extractHeaders(HttpServletRequest request) {
         Map<String, String> headers = new HashMap<>();
 
-        // Forward Cookie header for session management
-        String cookieHeader = request.getHeader("Cookie");
-        if (cookieHeader != null) {
-            headers.put("Cookie", cookieHeader);
+        // Get the user's session ID
+        String userSessionId = request.getSession().getId();
+
+        // Get the stored Azure service session cookie
+        String azureSessionCookie = sessionService.getAzureSessionCookie(userSessionId);
+        if (azureSessionCookie != null) {
+            headers.put("Cookie", azureSessionCookie);
+            System.out.println("Using stored Azure session cookie: " + azureSessionCookie);
+        } else {
+            System.out.println("No Azure session cookie found for user session: " + userSessionId);
+            // Fallback to original cookie if available
+            String cookieHeader = request.getHeader("Cookie");
+            if (cookieHeader != null) {
+                headers.put("Cookie", cookieHeader);
+                System.out.println("Fallback to original cookie: " + cookieHeader);
+            }
         }
 
         // Forward Authorization header if present
