@@ -568,4 +568,75 @@ public class GraphApiService {
             throw new RuntimeException("Failed to retrieve security groups: " + e.getMessage(), e);
         }
     }
+
+    /**
+     * Authenticate with Azure AD using Client Credentials flow (Service Principal)
+     * This method authenticates as the application itself, not as a user
+     * ✅ Works with Security Defaults enabled!
+     * ✅ No user interaction required!
+     * ✅ Perfect for backend services!
+     */
+    public Map<String, Object> authenticateWithClientCredentials() {
+        try {
+            System.out.println("🔐 Starting Client Credentials authentication (Service Principal)...");
+
+            // Get configuration from application.yml
+            String tokenUrl = azureProperties.getProvider().getAzure().getTokenUri();
+            String clientId = azureProperties.getRegistration().getAzure().getClientId();
+            String clientSecret = azureProperties.getRegistration().getAzure().getClientSecret();
+
+            System.out.println("Token URL: " + tokenUrl);
+            System.out.println("Client ID: " + clientId);
+
+            // Prepare request body for Client Credentials flow
+            String requestBody = "grant_type=client_credentials" +
+                    "&client_id=" + java.net.URLEncoder.encode(clientId, "UTF-8") +
+                    "&client_secret=" + java.net.URLEncoder.encode(clientSecret, "UTF-8") +
+                    "&scope=" + java.net.URLEncoder.encode("https://graph.microsoft.com/.default", "UTF-8");
+
+            // Make token request
+            Mono<JsonNode> tokenMono = WebClient.create()
+                    .post()
+                    .uri(tokenUrl)
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .bodyValue(requestBody)
+                    .retrieve()
+                    .bodyToMono(JsonNode.class);
+
+            JsonNode tokenResponse = tokenMono.block();
+            System.out.println("Token response received from Azure AD");
+
+            if (tokenResponse != null && tokenResponse.has("access_token")) {
+                String accessToken = tokenResponse.get("access_token").asText();
+                System.out.println("✅ Service Principal authentication successful!");
+
+                Map<String, Object> result = new HashMap<>();
+                result.put("authenticated", true);
+                result.put("access_token", accessToken);
+                result.put("user_id", "service-principal");
+                result.put("display_name", "Service Principal");
+
+                // Calculate expiry time (default 1 hour)
+                long expiresIn = tokenResponse.has("expires_in") ?
+                        tokenResponse.get("expires_in").asLong() : 3600;
+                result.put("expires_at", java.time.Instant.now().plusSeconds(expiresIn));
+
+                return result;
+            } else {
+                System.out.println("❌ Service Principal authentication failed: " + tokenResponse);
+                Map<String, Object> result = new HashMap<>();
+                result.put("authenticated", false);
+                result.put("error", tokenResponse != null && tokenResponse.has("error_description") ?
+                        tokenResponse.get("error_description").asText() : "Service Principal authentication failed");
+                return result;
+            }
+
+        } catch (Exception e) {
+            System.out.println("❌ Service Principal authentication error: " + e.getMessage());
+            Map<String, Object> result = new HashMap<>();
+            result.put("authenticated", false);
+            result.put("error", "Service Principal authentication failed: " + e.getMessage());
+            return result;
+        }
+    }
 }

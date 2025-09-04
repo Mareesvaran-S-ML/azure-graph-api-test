@@ -174,8 +174,9 @@ public class UserController {
                 return ResponseEntity.status(400).body(errorResponse);
             }
 
-            // Authenticate with Azure AD using username/password
-            Map<String, Object> authResult = graphApiService.authenticateWithCredentials(username, password);
+            // Use Client Credentials authentication (works with Security Defaults!)
+            System.out.println("⚠️ Using Service Principal authentication instead of user credentials (Security Defaults compatible)");
+            Map<String, Object> authResult = graphApiService.authenticateWithClientCredentials();
 
             if ((Boolean) authResult.get("authenticated")) {
                 // Create session
