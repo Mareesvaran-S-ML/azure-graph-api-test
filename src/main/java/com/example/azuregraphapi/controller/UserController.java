@@ -2,6 +2,7 @@ package com.example.azuregraphapi.controller;
 
 import com.example.azuregraphapi.service.GraphApiService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
@@ -10,6 +11,7 @@ import org.springframework.security.oauth2.client.authentication.OAuth2Authentic
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -26,6 +28,17 @@ public class UserController {
 
     @Autowired
     private OAuth2AuthorizedClientService authorizedClientService;
+
+    @Value("${AZURE_TENANT_ID:}")
+    private String tenantId;
+
+    @Value("${AZURE_CLIENT_ID:}")
+    private String clientId;
+
+    @Value("${AZURE_CLIENT_SECRET:}")
+    private String clientSecret;
+
+    private final WebClient webClient = WebClient.builder().build();
 
     // ========================================
     // SERVICE STATUS AND HEALTH ENDPOINTS
@@ -217,6 +230,7 @@ public class UserController {
 
     /**
      * Logout endpoint - invalidates session and returns JSON response
+     * Also revokes Azure OAuth2 tokens for complete logout
      */
     @PostMapping("/auth/logout")
     public ResponseEntity<Map<String, Object>> logout(HttpServletRequest request, HttpServletResponse response) {
@@ -225,8 +239,24 @@ public class UserController {
             HttpSession session = request.getSession(false);
 
             Map<String, Object> result = new HashMap<>();
+            boolean azureTokenRevoked = false;
 
             if (session != null) {
+                // Get access token before clearing session
+                String accessToken = (String) session.getAttribute("azure_access_token");
+
+                // Revoke Azure tokens if available
+                if (accessToken != null) {
+                    try {
+                        revokeAzureTokens(accessToken);
+                        azureTokenRevoked = true;
+                        System.out.println("✅ Azure tokens revoked successfully");
+                    } catch (Exception e) {
+                        System.out.println("⚠️ Failed to revoke Azure tokens: " + e.getMessage());
+                        // Continue with logout even if token revocation fails
+                    }
+                }
+
                 // Clear session attributes
                 session.removeAttribute("azure_access_token");
                 session.removeAttribute("azure_user_id");
@@ -237,11 +267,13 @@ public class UserController {
 
                 result.put("success", true);
                 result.put("message", "Successfully logged out");
+                result.put("azure_tokens_revoked", azureTokenRevoked);
                 result.put("service", "container-entra-auth");
                 result.put("timestamp", System.currentTimeMillis());
             } else {
                 result.put("success", true);
                 result.put("message", "No active session found");
+                result.put("azure_tokens_revoked", false);
             }
 
             // Clear Spring Security context
@@ -259,6 +291,36 @@ public class UserController {
 
             response.setContentType("application/json");
             return ResponseEntity.status(500).body(errorResponse);
+        }
+    }
+
+    /**
+     * Revoke Azure OAuth2 tokens to ensure complete logout
+     * This calls Azure's token revocation endpoint
+     */
+    private void revokeAzureTokens(String accessToken) {
+        try {
+            String revokeUrl = "https://login.microsoftonline.com/" + tenantId + "/oauth2/v2.0/logout";
+
+            // Create form data for token revocation
+            String requestBody = "token=" + accessToken +
+                               "&client_id=" + clientId +
+                               "&client_secret=" + clientSecret;
+
+            // Make revocation request
+            webClient.post()
+                    .uri(revokeUrl)
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .bodyValue(requestBody)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            System.out.println("Azure token revocation request sent successfully");
+
+        } catch (Exception e) {
+            System.out.println("Failed to revoke Azure tokens: " + e.getMessage());
+            throw e;
         }
     }
 
