@@ -174,8 +174,8 @@ public class UserController {
                 return ResponseEntity.status(400).body(errorResponse);
             }
 
-            // Use Client Credentials authentication (works with Security Defaults!)
-            System.out.println("⚠️ Using Service Principal authentication instead of user credentials (Security Defaults compatible)");
+            // Use Client Credentials authentication for service principal token
+            System.out.println("🔐 Using Client Credentials flow to get service principal token...");
             Map<String, Object> authResult = graphApiService.authenticateWithClientCredentials();
 
             if ((Boolean) authResult.get("authenticated")) {
@@ -184,7 +184,7 @@ public class UserController {
 
                 // Store authentication info in session
                 request.getSession().setAttribute("azure_access_token", authResult.get("access_token"));
-                request.getSession().setAttribute("azure_user_id", authResult.get("user_id"));
+                request.getSession().setAttribute("azure_user_id", username); // Store the actual username that logged in
                 request.getSession().setAttribute("authenticated", true);
 
                 // Create a Spring Security authentication token
@@ -196,13 +196,14 @@ public class UserController {
 
                 Map<String, Object> result = new HashMap<>();
                 result.put("authenticated", true);
-                result.put("session_code", sessionId);
-                result.put("user_id", authResult.get("user_id"));
+                // result.put("session_code", sessionId); // Commented out: Not needed for web apps using cookies
+                result.put("user_id", username); // Return the actual username that logged in
                 result.put("expires_at", authResult.get("expires_at"));
                 result.put("login_time", System.currentTimeMillis());
-                result.put("message", "Use Cookie: JSESSIONID=" + sessionId + " or X-Session-Code header for subsequent API calls");
+                result.put("message", "Authentication successful");
                 result.put("service", "container-entra-auth");
                 result.put("api_version", "1.0.0");
+                // Note: For manual API testing with tools like Postman, use X-Session-Code header with value: " + sessionId
                 result.put("endpoints", Map.of(
                     "user_profile", "/api/graph/user/profile",
                     "users", "/api/graph/users",

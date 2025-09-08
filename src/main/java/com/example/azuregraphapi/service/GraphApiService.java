@@ -69,14 +69,40 @@ public class GraphApiService {
                 accessToken = getAccessTokenFromSession(request);
             }
 
-            // Get user profile with all fields
-            Mono<JsonNode> userMono = webClient.get()
-                    .uri("/me?$select=id,displayName,userPrincipalName,mail,jobTitle,department,accountEnabled,createdDateTime,lastSignInDateTime,userType,assignedLicenses")
-                    .header("Authorization", "Bearer " + accessToken)
-                    .retrieve()
-                    .bodyToMono(JsonNode.class);
+            // For Client Credentials flow, we can't use /me endpoint
+            // Instead, get the user who authenticated from session
+            String currentUserId = null;
 
-            JsonNode userJson = userMono.block();
+            // Try to get user ID from session (stored during login)
+            Object sessionUserId = request.getSession().getAttribute("azure_user_id");
+            if (sessionUserId != null) {
+                currentUserId = sessionUserId.toString();
+                System.out.println("Found user ID in session: " + currentUserId);
+            }
+
+            // If no user ID in session, try to get from authentication
+            if (currentUserId == null && authentication != null) {
+                currentUserId = authentication.getName();
+                System.out.println("Found user ID in authentication: " + currentUserId);
+            }
+
+            JsonNode userJson = null;
+
+            if (currentUserId != null && !currentUserId.equals("service-principal")) {
+                // Get specific user by ID using Application permissions
+                System.out.println("Fetching user profile for: " + currentUserId);
+                Mono<JsonNode> userMono = webClient.get()
+                        .uri("/users/" + currentUserId + "?$select=id,displayName,userPrincipalName,mail,jobTitle,department,accountEnabled,createdDateTime,lastSignInDateTime,userType,assignedLicenses")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .retrieve()
+                        .bodyToMono(JsonNode.class);
+
+                userJson = userMono.block();
+            }
+
+            if (userJson == null) {
+                throw new RuntimeException("Could not fetch user data from Microsoft Graph API. User ID: " + currentUserId);
+            }
 
             UserDTO userDTO = new UserDTO();
             userDTO.setId(userJson.get("id").asText());
